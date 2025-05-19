@@ -51,9 +51,6 @@ unsigned short checksum(unsigned short* buff, int _16bitword)
 	while(sum & 0xFFFF0000);
 
 	return (~sum);
-
-
-	
 }
 
 int main()
