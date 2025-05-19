@@ -14,5 +14,5 @@ client.o: client.c
 
 clean:
 	rm -f *.o
-  rm -f server
-  rm -f client
+	rm -f server
+	rm -f client
