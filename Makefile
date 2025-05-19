@@ -16,3 +16,4 @@ clean:
 	rm -f *.o
 	rm -f server
 	rm -f client
+	rm -f newfile.jpg
