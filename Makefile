@@ -7,10 +7,10 @@ client: client.o
 	gcc client.o -o client
 
 server.o: server.c
-	gcc server.c -c server.o
+	gcc -c server.c -o server.o
 
 client.o: client.c
-	gcc client.c -c client.o
+	gcc -c client.c -o client.o
 
 clean:
 	rm -f *.o

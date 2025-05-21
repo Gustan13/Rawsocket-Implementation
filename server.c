@@ -3,8 +3,8 @@
  */
 #include <stdio.h>
 #include <string.h>
-#include <malloc.h>
 #include <errno.h>
+#include <stdlib.h>
 
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -22,35 +22,51 @@
 
 #include "packet.h"
 
-struct ifreq ifreq_c,ifreq_i,ifreq_ip; /// for each ioctl keep diffrent ifreq structure otherwise error may come in sending(sendto )
+struct ifreq ifreq_i; 
 int sock_raw;
 unsigned char *sendbuff;
 
 int total_len=0,send_len;
 
-void get_eth_index()
-{
-	memset(&ifreq_i,0,sizeof(ifreq_i));
-	strncpy(ifreq_i.ifr_name,"eth0",IFNAMSIZ-1);
+int create_raw_socket(char *interface_name) {
+	int s = socket(AF_PACKET, SOCK_RAW, IPPROTO_RAW);
+	if (s == -1) {
+		fprintf(stderr, "Could not create rawsocket.\n");
+		exit(-1);
+	}
+	
+	int ifindex = if_nametoindex(interface_name);
 
-	if((ioctl(sock_raw,SIOCGIFINDEX,&ifreq_i))<0)
-		printf("error in index ioctl reading");
+	struct sockaddr_ll address = {0};
+	address.sll_family = AF_PACKET;
+	address.sll_protocol = htons(ETH_P_ALL);
+	address.sll_ifindex = ifindex;
 
-	printf("index=%d\n",ifreq_i.ifr_ifindex);
+	if (bind(s, (struct sockaddr*) &address, sizeof(address)) == -1) {
+		fprintf(stderr, "Could not bind socket\n");
+		exit(-1);
+	}
+
+	struct packet_mreq mr = {0};
+	mr.mr_ifindex = ifindex;
+	mr.mr_type = PACKET_MR_PROMISC;
+	if (setsockopt(s, SOL_PACKET, PACKET_ADD_MEMBERSHIP, &mr, sizeof(mr)) == -1) {
+		fprintf(stderr, "Could not finish setsockopt: was the network interface correctly specified?\n");
+		exit(-1);
+	}
+
+	return s;
 }
 
-unsigned short checksum(unsigned short* buff, int _16bitword)
+void get_eth_index(struct ifreq ifreq_i, int sock_raw)
 {
-	unsigned long sum;
-	for(sum=0;_16bitword>0;_16bitword--)
-		sum+=htons(*(buff)++);
-	do
-	{
-		sum = ((sum >> 16) + (sum & 0xFFFF));
-	}
-	while(sum & 0xFFFF0000);
+	memset(&ifreq_i, 0, sizeof(ifreq_i));
+	strncpy(ifreq_i.ifr_name, "eth0", IFNAMSIZ - 1);
 
-	return (~sum);
+	if((ioctl(sock_raw, SIOCGIFINDEX, &ifreq_i)) < 0) {
+		fprintf(stderr, "Error in index ioctl reading$");
+	}
+	return ifreq_i;
 }
 
 int main()
@@ -60,14 +76,7 @@ int main()
 		return -1;
 	}
 	
-	sock_raw=socket(AF_PACKET,SOCK_RAW,IPPROTO_RAW);
-	if(sock_raw == -1)
-		printf("error in socket");
-
-	sendbuff=(unsigned char*)malloc(134); // increase in case of large data.Here data is --> AA  BB  CC  DD  EE
-	memset(sendbuff,0,134);
-
-
+	sock_raw = create_raw_socket();
 	get_eth_index();  // interface number
 
 	struct sockaddr_ll sadr_ll;
